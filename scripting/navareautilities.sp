@@ -3,7 +3,6 @@
 //#define DEBUG
 
 #define PLUGIN_AUTHOR "Rachnus, pelipoika"
-#define PLUGIN_VERSION "1.0"
 
 #include <sourcemod>
 #include <sdktools>
@@ -21,10 +20,10 @@ Handle g_hOnNavAreasLoaded;
 
 public Plugin myinfo = 
 {
-	name = "Nav Area Utilities CSGO v1.0",
+	name = "Nav Area Utilities CSGO v1.01",
 	author = PLUGIN_AUTHOR,
 	description = "Nav Area Utilities for CSGO",
-	version = PLUGIN_VERSION,
+	version = NAU_VERSION,
 	url = "https://github.com/Rachnus"
 };
 
@@ -65,16 +64,18 @@ public int Native_GetNavAreaAddressByIndex(Handle plugin, int numParams)
 
 public Action Command_Test(int client, int args)
 {
-	Address navAreaAddress = NAU_GetClientLastKnownNavArea(client);
-	if(navAreaAddress == Address_Null)
+	CNavArea navArea = NAU_GetClientLastKnownNavArea(client);
+	if(navArea.IsNullPointer())
 		return Plugin_Handled;
 		
 	PrintToServer("CLIENT: 0x%X", GetEntityAddress(client));
-	PrintToServer("0x%X", navAreaAddress);
-	PrintToServer("UP: %d", NAU_GetNeighbourNavAreaCount(navAreaAddress, NAVDIR_UP));
-	PrintToServer("DOWN: %d", NAU_GetNeighbourNavAreaCount(navAreaAddress, NAVDIR_DOWN));
-	NAU_DebugNavArea(client, navAreaAddress, g_iPathLaserModelIndex);
-	NAU_DebugNavAreaNeighbours(client, navAreaAddress, g_iPathLaserModelIndex);
+	PrintToServer("0x%X", view_as<Address>(navArea));
+	PrintToServer("UP: %d", navArea.GetNeighbourCount(NAVDIR_UP));
+	PrintToServer("DOWN: %d", navArea.GetNeighbourCount(NAVDIR_DOWN));
+	
+	NAU_DebugNavArea(client, navArea, g_iPathLaserModelIndex);
+	NAU_DebugNavAreaNeighbours(client, navArea, g_iPathLaserModelIndex);
+
 	return Plugin_Handled;
 }
 
@@ -84,9 +85,9 @@ public Action Command_Area(int client, int args)
 {
 	if(args < 1)
 	{
-		Address navAreaAddress = NAU_GetClientLastKnownNavArea(client);
-		if(navAreaAddress != Address_Null)
-			NAU_DebugNavArea(client, navAreaAddress, g_iPathLaserModelIndex);
+		CNavArea navArea = NAU_GetClientLastKnownNavArea(client);
+		if(!navArea.IsNullPointer())
+			NAU_DebugNavArea(client, navArea, g_iPathLaserModelIndex);
 		return Plugin_Handled;
 	}
 	
@@ -103,11 +104,11 @@ public Action Command_Area(int client, int args)
 		return Plugin_Handled;
 	}
 	
-	Address navAreaAddress = GetNavAreaAddressByIndex(navAreaIndex);
+	CNavArea navArea = GetNavAreaAddressByIndex(navAreaIndex);
 	
-	NAU_DebugNavArea(client, navAreaAddress, g_iPathLaserModelIndex);
+	NAU_DebugNavArea(client, navArea, g_iPathLaserModelIndex);
 	if(StringToInt(arg2) == 1)
-		NAU_DebugNavAreaNeighbours(client, navAreaAddress, g_iPathLaserModelIndex);
+		NAU_DebugNavAreaNeighbours(client, navArea, g_iPathLaserModelIndex);
 
 	return Plugin_Handled;
 }
@@ -123,9 +124,9 @@ public int GetNavAreaCount()
 	return LoadFromAddress(g_pNavAreaCount, NumberType_Int32);
 }
 
-public Address GetNavAreaAddressByIndex(int navAreaIndex)
+public CNavArea GetNavAreaAddressByIndex(int navAreaIndex)
 {
-	return view_as<Address>(LoadFromAddress(g_pNavAreas + view_as<Address>(4 * navAreaIndex), NumberType_Int32));
+	return view_as<CNavArea>(LoadFromAddress(g_pNavAreas + view_as<Address>(4 * navAreaIndex), NumberType_Int32));
 }
 
 public void OnMapStart()

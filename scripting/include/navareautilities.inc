@@ -7,6 +7,8 @@
 
 #define NAU_GAMEDATA "navareautilities.gamedata"
 
+#define NAU_VERSION "1.01"
+
 #define NAU_NAVAREA_SOUTH_NAV_CONNECT_VECTOR 0x5C
 
 #define NAU_NAVAREA_LADDER_INDICATOR 0x34
@@ -58,284 +60,295 @@ native Address NAU_GetNavAreaAddressByIndex(int navAreaIndex);
  */
 forward void NAU_OnNavAreasLoaded();
 
-/**
- * Returns the center position of the nav area
- * @param address of the nav area
- * @param buffer to store the position
- * @return void
- */
-public void NAU_GetNavAreaCenter(Address navAreaAddress, float result[3])
+methodmap CNavArea
 {
-	float nwCorner[3], seCorner[3];
-	NAU_GetNavAreaNorthWestCorner(navAreaAddress, nwCorner);
-	NAU_GetNavAreaSouthEastCorner(navAreaAddress, seCorner);
+	/**
+	 * Returns the north west corner of the nav area
+	 * @param address of the nav area
+	 * @param buffer to store the position
+	 * @return void
+	 */
+	public void GetNorthWestCorner(float result[3])
+	{
+		result[0] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(4), NumberType_Int32));
+		result[1] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(8), NumberType_Int32));
+		result[2] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(12), NumberType_Int32));
+	}
 	
-	NAU_GetMiddleOfABox(nwCorner, seCorner, result);
-}
-
-/**
- * Get the center position of the nav ladder area
- * @param address of the nav area to check
- * @param buffer to store the position
- * @return void
- */
-public void NAU_GetNavLadderCenter(Address navLadderAddress, float result[3])
-{
-	float nwCorner[3], seCorner[3];
-	NAU_GetNavLadderTop(navLadderAddress, seCorner);
-	NAU_GetNavLadderBottom(navLadderAddress, nwCorner);
+	/**
+	 * Returns the south east corner of the nav area
+	 * @param address of the nav area
+	 * @param buffer to store the position
+	 * @return void
+	 */
+	public void GetSouthEastCorner(float result[3])
+	{
+		result[0] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(16), NumberType_Int32));
+		result[1] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(20), NumberType_Int32));
+		result[2] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(24), NumberType_Int32));
+	}
 	
-	NAU_GetMiddleOfABox(nwCorner, seCorner, result);
-}
-
-/**
- * Returns wether or not the entity has larger X/Y values than the nav area
- * @param address of the nav area
- * @param entity index
- * @return bool		can entity fit in nav area
- */
-public bool NAU_CanEntityFitInNavArea(Address navAreaAddress, int entity)
-{
-	float mid[3], vMins[3], vMaxs[3];
-	GetEntPropVector(entity, Prop_Data, "m_vecMins", vMins);
-	GetEntPropVector(entity, Prop_Data, "m_vecMaxs", vMaxs);
+	/**
+	 * Get the amount of nav areas in direction
+	 * @param address of the nav area
+	 * @param direction
+	 * @return int		Amount of neighbours in direction
+	 */
+	public int GetNeighbourCount(NavDirType direction)
+	{
+		Address navConnectVector =	view_as<Address>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(NAU_NAVAREA_SOUTH_NAV_CONNECT_VECTOR + (0x4 * view_as<int>(direction))), NumberType_Int32));
+		return LoadFromAddress(navConnectVector, NumberType_Int32);
+	}
 	
-	mid[0] /= 2.0;
-	mid[1] /= 2.0;
-	mid[2] /= 2.0;
+	/**
+	 * Get address of a neighbour nav area
+	 * @param address of the nav area
+	 * @param direction
+	 * @param neighbour index
+	 * @return address 		address of the neighbour nav area
+	 */
+	public CNavArea GetNeighbour(NavDirType direction, int directionListIndex)
+	{
+		Address navConnectVector =	view_as<Address>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(NAU_NAVAREA_SOUTH_NAV_CONNECT_VECTOR + (0x4 * view_as<int>(direction))), NumberType_Int32));
+		return view_as<CNavArea>(LoadFromAddress(navConnectVector + view_as<Address>(0x4 + (0x8 * view_as<int>(directionListIndex))), NumberType_Int32));
+	}
 	
-	if(mid[0] < 0.0) mid[0] *= -1;
-	if(mid[1] < 0.0) mid[1] *= -1;
-	if(mid[2] < 0.0) mid[2] *= -1;
+	/**
+	 * Hacky way to find out if the nav area a CNavLadder or CNavArea
+	 * @param address of the nav area to check
+	 * @return bool 	if ladder area or not
+	 */
+	public bool IsNavLadder()
+	{
+		int hack = view_as<int>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(NAU_NAVAREA_LADDER_INDICATOR), NumberType_Int32));
+		return hack == -1;
+	}
 	
-	float nwCorner[3], seCorner[3], navAreaMid[3];
-	NAU_GetNavAreaNorthWestCorner(navAreaAddress, nwCorner);
-	NAU_GetNavAreaSouthEastCorner(navAreaAddress, seCorner);
+	public bool IsNullPointer()
+	{
+		return view_as<Address>(this) <= Address_Null;
+	}
 	
-	MakeVectorFromPoints(seCorner, nwCorner, navAreaMid);
-	
-	navAreaMid[0] /= 2.0;
-	navAreaMid[1] /= 2.0;
-	navAreaMid[2] /= 2.0;
-	
-	if(navAreaMid[0] < 0.0) navAreaMid[0] *= -1;
-	if(navAreaMid[1] < 0.0) navAreaMid[1] *= -1;
-	if(navAreaMid[2] < 0.0) navAreaMid[2] *= -1;
-	
-	return (mid[0] <= navAreaMid[0] && mid[1] <= navAreaMid[1]);
-}
-
-/**
- * Returns wether or not the entity has larger X/Y values than the nav area
- * @param address of the nav area
- * @param Mins of box
- * @param Maxs of box
- * @return bool		can entity fit in nav area
- */
-public bool NAU_CanFitInNavArea(Address navAreaAddress, float vMins[3], float vMaxs[3])
-{
-	float mid[3];
-	MakeVectorFromPoints(vMins, vMaxs, mid);
-	mid[0] /= 2.0;
-	mid[1] /= 2.0;
-	
-	if(mid[0] < 0.0) mid[0] *= -1;
-	if(mid[1] < 0.0) mid[1] *= -1;
-	
-	float nwCorner[3], seCorner[3], navAreaMid[3];
-	NAU_GetNavAreaNorthWestCorner(navAreaAddress, nwCorner);
-	NAU_GetNavAreaSouthEastCorner(navAreaAddress, seCorner);
-	
-	MakeVectorFromPoints(seCorner, nwCorner, navAreaMid);
-	
-	navAreaMid[0] /= 2.0;
-	navAreaMid[1] /= 2.0;
-	
-	if(navAreaMid[0] < 0.0) navAreaMid[0] *= -1;
-	if(navAreaMid[1] < 0.0) navAreaMid[1] *= -1;
-	
-	return (mid[0] <= navAreaMid[0] && mid[1] <= navAreaMid[1]);
-}
-
-/**
- * Get a random position within a nav area, returns false if the mins/maxs are bigger than the area
- * @param address of the nav area
- * @param Mins of entity you want to fit in the area
- * @param Maxs of entity you want to fit in the area
- * @param buffer to store the position
- * @return bool		can entity fit in nav area
- */
-public bool NAU_GetRandomPosWithinNavArea(Address navAreaAddress, float vMins[3], float vMaxs[3], float result[3])
-{
-	// To stop random crashes if someone were to do stuff on a navladder
-	if(NAU_IsNavLadder(navAreaAddress))
-		return false;
+	/**
+	 * Returns the center position of the nav area
+	 * @param address of the nav area
+	 * @param buffer to store the position
+	 * @return void
+	 */
+	public void GetCenter(float result[3])
+	{
+		float nwCorner[3], seCorner[3];
+		this.GetNorthWestCorner(nwCorner);
+		this.GetSouthEastCorner(seCorner);
 		
-	bool returnVal = true;
-	float mid[3];
-	MakeVectorFromPoints(vMins, vMaxs, mid);
-	mid[0] /= 2.0;
-	mid[1] /= 2.0;
+		NAU_GetMiddleOfABox(nwCorner, seCorner, result);
+	}
 	
-	if(mid[0] < 0.0) mid[0] *= -1;
-	if(mid[1] < 0.0) mid[1] *= -1;
+	/**
+	 * Returns wether or not the entity has larger X/Y values than the nav area
+	 * @param address of the nav area
+	 * @param entity index
+	 * @return bool		can entity fit in nav area
+	 */
+	public bool CanEntityFit(int entity)
+	{
+		float mid[3], vMins[3], vMaxs[3];
+		GetEntPropVector(entity, Prop_Data, "m_vecMins", vMins);
+		GetEntPropVector(entity, Prop_Data, "m_vecMaxs", vMaxs);
+		
+		mid[0] /= 2.0;
+		mid[1] /= 2.0;
+		mid[2] /= 2.0;
+		
+		if(mid[0] < 0.0) mid[0] *= -1;
+		if(mid[1] < 0.0) mid[1] *= -1;
+		if(mid[2] < 0.0) mid[2] *= -1;
+		
+		float nwCorner[3], seCorner[3], navAreaMid[3];
+		this.GetNorthWestCorner(nwCorner);
+		this.GetSouthEastCorner(seCorner);
+		
+		MakeVectorFromPoints(seCorner, nwCorner, navAreaMid);
+		
+		navAreaMid[0] /= 2.0;
+		navAreaMid[1] /= 2.0;
+		navAreaMid[2] /= 2.0;
+		
+		if(navAreaMid[0] < 0.0) navAreaMid[0] *= -1;
+		if(navAreaMid[1] < 0.0) navAreaMid[1] *= -1;
+		if(navAreaMid[2] < 0.0) navAreaMid[2] *= -1;
+		
+		return (mid[0] <= navAreaMid[0] && mid[1] <= navAreaMid[1]);
+	}
 	
-	float nwCorner[3], seCorner[3], navAreaMid[3];
-	NAU_GetNavAreaNorthWestCorner(navAreaAddress, nwCorner);
-	NAU_GetNavAreaSouthEastCorner(navAreaAddress, seCorner);
+	/**
+	 * Returns wether or not the entity has larger X/Y values than the nav area
+	 * @param address of the nav area
+	 * @param Mins of box
+	 * @param Maxs of box
+	 * @return bool		can entity fit in nav area
+	 */
+	public bool CanFit(float vMins[3], float vMaxs[3])
+	{
+		float mid[3];
+		MakeVectorFromPoints(vMins, vMaxs, mid);
+		mid[0] /= 2.0;
+		mid[1] /= 2.0;
+		
+		if(mid[0] < 0.0) mid[0] *= -1;
+		if(mid[1] < 0.0) mid[1] *= -1;
+		
+		float nwCorner[3], seCorner[3], navAreaMid[3];
+		this.GetNorthWestCorner(nwCorner);
+		this.GetSouthEastCorner(seCorner);
+		
+		MakeVectorFromPoints(seCorner, nwCorner, navAreaMid);
+		
+		navAreaMid[0] /= 2.0;
+		navAreaMid[1] /= 2.0;
+		
+		if(navAreaMid[0] < 0.0) navAreaMid[0] *= -1;
+		if(navAreaMid[1] < 0.0) navAreaMid[1] *= -1;
+		
+		return (mid[0] <= navAreaMid[0] && mid[1] <= navAreaMid[1]);
+	}
 	
-	MakeVectorFromPoints(seCorner, nwCorner, navAreaMid);
+	/**
+	 * Get a random position within a nav area, returns false if the mins/maxs are bigger than the area
+	 * @param address of the nav area
+	 * @param Mins of entity you want to fit in the area
+	 * @param Maxs of entity you want to fit in the area
+	 * @param buffer to store the position
+	 * @return bool		can entity fit in nav area
+	 */
+	public bool GetRandomPos(float vMins[3], float vMaxs[3], float result[3])
+	{
+		// To stop random crashes if someone were to do stuff on a navladder
+		if(this.IsNavLadder())
+			return false;
+			
+		bool returnVal = true;
+		float mid[3];
+		MakeVectorFromPoints(vMins, vMaxs, mid);
+		mid[0] /= 2.0;
+		mid[1] /= 2.0;
+		
+		if(mid[0] < 0.0) mid[0] *= -1;
+		if(mid[1] < 0.0) mid[1] *= -1;
+		
+		float nwCorner[3], seCorner[3], navAreaMid[3];
+		this.GetNorthWestCorner(nwCorner);
+		this.GetSouthEastCorner(seCorner);
+		
+		MakeVectorFromPoints(seCorner, nwCorner, navAreaMid);
+		
+		navAreaMid[0] /= 2.0;
+		navAreaMid[1] /= 2.0;
+		
+		if(navAreaMid[0] < 0.0) navAreaMid[0] *= -1;
+		if(navAreaMid[1] < 0.0) navAreaMid[1] *= -1;
+		
+		if(mid[0] > navAreaMid[0] || mid[1] > navAreaMid[1])
+			returnVal = false;
+		
+		// Add/Subtract half of the size to the random pos (To make the entity fit properly)
+		result[0] = GetRandomFloat(nwCorner[0] + mid[0], seCorner[0] - mid[0]);
+		result[1] = GetRandomFloat(nwCorner[1] + mid[1], seCorner[1] - mid[1]);
+		
+		// Set the position to the highest point (TODO: Add function to calculate the height of the slope at a certain point of the plane)
+		result[2] = seCorner[2];
+		
+		return returnVal;
+	}
+
+	/**
+	 * Get the difference in Z positions of the nav area (Used to check if its a slope or not, returns 0 if plane surface)
+	 * @param address of the nav area
+	 * @return float		Z position difference
+	 */
+	public float GetZDifference()
+	{
+		float nwCorner[3], seCorner[3];
+		this.GetNorthWestCorner(nwCorner);
+		this.GetSouthEastCorner(seCorner);
+		
+		return seCorner[2] - nwCorner[2];
+	}
+}
+
+methodmap CNavLadder < CNavArea
+{
+	/**
+	 * Get the top left position of the nav ladder area
+	 * @param address of the ladder nav area
+	 * @param buffer to store the position
+	 * @return void
+	 */
+	public void GetTop(float result[3])
+	{
+		result[0] = view_as<float>(LoadFromAddress(view_as<Address>(this), NumberType_Int32));
+		result[1] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(4), NumberType_Int32));
+		result[2] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(8), NumberType_Int32));
+	}
 	
-	navAreaMid[0] /= 2.0;
-	navAreaMid[1] /= 2.0;
+	/**
+	 * Get the bottom right position of the nav ladder area
+	 * @param address of the nav area to check
+	 * @param buffer to store the position
+	 * @return void
+	 */
+	public void GetBottom(float result[3])
+	{
+		result[0] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(12), NumberType_Int32));
+		result[1] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(16), NumberType_Int32));
+		result[2] = view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(20), NumberType_Int32));
+	}
 	
-	if(navAreaMid[0] < 0.0) navAreaMid[0] *= -1;
-	if(navAreaMid[1] < 0.0) navAreaMid[1] *= -1;
+	/**
+	 * Get the height of the ladder
+	 * @param address of the nav ladder to check
+	 * @return float	height of ladder
+	 */
+	public float GetHeight()
+	{
+		return view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(NAU_NAVAREA_LADDER_HEIGHT), NumberType_Int32));
+	}
 	
-	if(mid[0] > navAreaMid[0] || mid[1] > navAreaMid[1])
-		returnVal = false;
+	/**
+	 * Get the width of the ladder
+	 * @param address of the nav ladder to check
+	 * @return float	width of ladder
+	 */
+	public float GetWidth()
+	{
+		return view_as<float>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(NAU_NAVAREA_LADDER_WIDTH), NumberType_Int32));
+	}
 	
-	// Add/Subtract half of the size to the random pos (To make the entity fit properly)
-	result[0] = GetRandomFloat(nwCorner[0] + mid[0], seCorner[0] - mid[0]);
-	result[1] = GetRandomFloat(nwCorner[1] + mid[1], seCorner[1] - mid[1]);
+	/**
+	 * Get address of a destination nav area from a ladder (check NavLadderDestination)
+	 * @param address of the nav ladder
+	 * @param ladder destination
+	 * @return address 		address of the destination nav area (Address_Null if invalid navarea)
+	 */
+	public CNavArea GetDestinationNavArea(NavLadderDestination destination)
+	{
+		return view_as<CNavArea>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(NAU_NAVAREA_LADDER_NAVAREAS + (0x4 * view_as<int>(destination))), NumberType_Int32));
+	}
 	
-	// Set the position to the highest point (TODO: Add function to calculate the height of the slope at a certain point of the plane)
-	result[2] = seCorner[2];
-	
-	return returnVal;
-}
-
-/**
- * Get the difference in Z positions of the nav area (Used to check if its a slope or not, returns 0 if plane surface)
- * @param address of the nav area
- * @return float		Z position difference
- */
-public float NAU_GetNavAreaZDifference(Address navAreaAddress)
-{
-	float nwCorner[3], seCorner[3];
-	NAU_GetNavAreaNorthWestCorner(navAreaAddress, nwCorner);
-	NAU_GetNavAreaSouthEastCorner(navAreaAddress, seCorner);
-	
-	return seCorner[2] - nwCorner[2];
-}
-
-/**
- * Returns the north west corner of the nav area
- * @param address of the nav area
- * @param buffer to store the position
- * @return void
- */
-public void NAU_GetNavAreaNorthWestCorner(Address navAreaAddress, float result[3])
-{
-	result[0] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(4), NumberType_Int32));
-	result[1] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(8), NumberType_Int32));
-	result[2] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(12), NumberType_Int32));
-}
-
-/**
- * Returns the south east corner of the nav area
- * @param address of the nav area
- * @param buffer to store the position
- * @return void
- */
-public void NAU_GetNavAreaSouthEastCorner(Address navAreaAddress, float result[3])
-{
-	result[0] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(16), NumberType_Int32));
-	result[1] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(20), NumberType_Int32));
-	result[2] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(24), NumberType_Int32));
-}
-
-/**
- * Get the top left position of the nav ladder area
- * @param address of the ladder nav area
- * @param buffer to store the position
- * @return void
- */
-public void NAU_GetNavLadderTop(Address navAreaAddress, float result[3])
-{
-	result[0] = view_as<float>(LoadFromAddress(navAreaAddress, NumberType_Int32));
-	result[1] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(4), NumberType_Int32));
-	result[2] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(8), NumberType_Int32));
-}
-
-/**
- * Get the bottom right position of the nav ladder area
- * @param address of the nav area to check
- * @param buffer to store the position
- * @return void
- */
-public void NAU_GetNavLadderBottom(Address navAreaAddress, float result[3])
-{
-	result[0] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(12), NumberType_Int32));
-	result[1] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(16), NumberType_Int32));
-	result[2] = view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(20), NumberType_Int32));
-}
-
-/**
- * Get the height of the ladder
- * @param address of the nav ladder to check
- * @return float	height of ladder
- */
-public float NAU_GetNavLadderHeight(Address navAreaAddress)
-{
-	return view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(NAU_NAVAREA_LADDER_HEIGHT), NumberType_Int32));
-}
-
-/**
- * Get the width of the ladder
- * @param address of the nav ladder to check
- * @return float	width of ladder
- */
-public float NAU_GetNavLadderWidth(Address navAreaAddress)
-{
-	return view_as<float>(LoadFromAddress(navAreaAddress + view_as<Address>(NAU_NAVAREA_LADDER_WIDTH), NumberType_Int32));
-}
-
-/**
- * Get the amount of nav areas in direction
- * @param address of the nav area
- * @param direction
- * @return int		Amount of neighbours in direction
- */
-public int NAU_GetNeighbourNavAreaCount(Address navAreaAddress, NavDirType direction)
-{
-	Address navConnectVector =	view_as<Address>(LoadFromAddress(navAreaAddress + view_as<Address>(NAU_NAVAREA_SOUTH_NAV_CONNECT_VECTOR + (0x4 * view_as<int>(direction))), NumberType_Int32));
-	return LoadFromAddress(navConnectVector, NumberType_Int32);
-}
-
-/**
- * Get address of a neighbour nav area
- * @param address of the nav area
- * @param direction
- * @param neighbour index
- * @return address 		address of the neighbour nav area
- */
-public Address NAU_GetNeighbourNavArea(Address navAreaAddress, NavDirType direction, int directionListIndex)
-{
-	Address navConnectVector =	view_as<Address>(LoadFromAddress(navAreaAddress + view_as<Address>(NAU_NAVAREA_SOUTH_NAV_CONNECT_VECTOR + (0x4 * view_as<int>(direction))), NumberType_Int32));
-	return view_as<Address>(LoadFromAddress(navConnectVector + view_as<Address>(0x4 + (0x8 * view_as<int>(directionListIndex))), NumberType_Int32));
-}
-
-/**
- * Get address of a destination nav area from a ladder (check NavLadderDestination)
- * @param address of the nav ladder
- * @param ladder destination
- * @return address 		address of the destination nav area (Address_Null if invalid navarea)
- */
-public Address NAU_GetDestinationNavAreaFromLadder(Address navLadderAddress, NavLadderDestination destination)
-{
-	return view_as<Address>(LoadFromAddress(navLadderAddress + view_as<Address>(NAU_NAVAREA_LADDER_NAVAREAS + (0x4 * view_as<int>(destination))), NumberType_Int32));
-}
-
-/**
- * Hacky way to find out if the nav area a CNavLadder or CNavArea
- * @param address of the nav area to check
- * @return bool 	if ladder area or not
- */
-public bool NAU_IsNavLadder(Address navAddress)
-{
-	int hack = view_as<int>(LoadFromAddress(navAddress + view_as<Address>(NAU_NAVAREA_LADDER_INDICATOR), NumberType_Int32));
-	return hack == -1;
+	/**
+	 * Get the center position of the nav ladder area
+	 * @param address of the nav area to check
+	 * @param buffer to store the position
+	 * @return void
+	 */
+	public void GetCenter(float result[3])
+	{
+		float nwCorner[3], seCorner[3];
+		this.GetTop(nwCorner);
+		this.GetBottom(seCorner);
+		
+		NAU_GetMiddleOfABox(nwCorner, seCorner, result);
+	}
 }
 
 /**
@@ -344,35 +357,43 @@ public bool NAU_IsNavLadder(Address navAddress)
  * @param a position to check which nav area is closest
  * @return address 		address of the closest neighbour area
  */
-public Address NAU_GetClosestNeighbourNavArea(Address navAreaAddress, float pos[3])
+public CNavArea NAU_GetClosestNavAreaNeighbour(CNavArea navArea, float pos[3])
 {
-	Address closestNavArea = navAreaAddress;
+	CNavArea closestNavArea = navArea;
 	float startPos[3];
 	//GetNavAreaCenter(navAreaAddress, startPos);
-	if(!NAU_IsNavLadder(closestNavArea))
-		NAU_GetNavAreaCenter(navAreaAddress, startPos);
+	if(!closestNavArea.IsNavLadder())
+		closestNavArea.GetCenter(startPos);
 	else
-		NAU_GetNavLadderCenter(navAreaAddress, startPos);
+	{
+		CNavLadder ladder = view_as<CNavLadder>(closestNavArea);
+		ladder.GetCenter(startPos);
+	}
 		
 	float closestDistance = GetVectorDistance(pos, startPos, true);
 	bool gotfirst = false;
-	if(NAU_IsNavLadder(navAreaAddress))
+	if(navArea.IsNavLadder())
 	{
 		ArrayList ladderDestinations = new ArrayList();
 		for (int i = 0; i < view_as<int>(NAVLADDER_MAX); i++)
 		{
-			Address destination = NAU_GetDestinationNavAreaFromLadder(navAreaAddress, view_as<NavLadderDestination>(i));
-			if(destination != Address_Null)
+			CNavLadder ladder = view_as<CNavLadder>(navArea);
+			CNavArea destination = ladder.GetDestinationNavArea(view_as<NavLadderDestination>(i));
+			
+			if(!destination.IsNullPointer())
 				ladderDestinations.Push(destination);
 		}
 		
-		Address destination = ladderDestinations.Get(GetRandomInt(0, ladderDestinations.Length - 1));
+		CNavArea destination = ladderDestinations.Get(GetRandomInt(0, ladderDestinations.Length - 1));
 		
 		float navPos[3];
-		if(!NAU_IsNavLadder(destination))
-			NAU_GetNavAreaCenter(destination, navPos);
+		if(!destination.IsNavLadder())
+			destination.GetCenter(navPos);
 		else
-			NAU_GetNavLadderCenter(destination, navPos);
+		{
+			CNavLadder ladder = view_as<CNavLadder>(destination);
+			ladder.GetCenter(navPos);
+		}
 
 		closestNavArea = destination;
 		delete ladderDestinations;
@@ -381,18 +402,21 @@ public Address NAU_GetClosestNeighbourNavArea(Address navAreaAddress, float pos[
 	{
 		for (int i = 0; i < view_as<int>(NAVDIR_MAX); i++)
 		{
-			int neighbourCount = NAU_GetNeighbourNavAreaCount(navAreaAddress, view_as<NavDirType>(i));
+			int neighbourCount = navArea.GetNeighbourCount(view_as<NavDirType>(i));
 			for (int j = 0; j < neighbourCount; j++)
 			{
-				Address neighbour = NAU_GetNeighbourNavArea(navAreaAddress, view_as<NavDirType>(i), j);
+				CNavArea neighbour = navArea.GetNeighbour(view_as<NavDirType>(i), j);
 				
 				float navPos[3];
 				//GetNavAreaCenter(neighbour, navPos);
 				
-				if(!NAU_IsNavLadder(closestNavArea))
-					NAU_GetNavAreaCenter(neighbour, navPos);
+				if(!closestNavArea.IsNavLadder())
+					neighbour.GetCenter(navPos);
 				else
-					NAU_GetNavLadderCenter(neighbour, navPos);
+				{
+					CNavLadder ladder = view_as<CNavLadder>(neighbour);
+					ladder.GetCenter(navPos);
+				}
 	
 				float dist = 0.0;
 				if((dist = GetVectorDistance(navPos, pos, true)) < closestDistance || !gotfirst)
@@ -408,15 +432,69 @@ public Address NAU_GetClosestNeighbourNavArea(Address navAreaAddress, float pos[
 	return closestNavArea;
 }
 
+public void NAU_DebugNavArea(int client, CNavArea navArea, int laserModelIndex)
+{
+	float navAreaNW[3], navAreaSE[3], center[3];
+	
+	if(!navArea.IsNavLadder())
+	{
+		navArea.GetNorthWestCorner(navAreaNW);
+		navArea.GetSouthEastCorner(navAreaSE);
+		navArea.GetCenter(center);
+	}
+	else
+	{
+		CNavLadder ladder = view_as<CNavLadder>(navArea);
+		ladder.GetTop(navAreaNW);
+		ladder.GetBottom(navAreaSE);
+		ladder.GetCenter(center);
+	}
+
+	if(client > 0 && client <= MaxClients && IsClientInGame(client))
+	{
+		NAU_PrintVector(client, "North West: ", navAreaNW);
+		NAU_PrintVector(client, "South East: ", navAreaSE);
+		NAU_PrintVector(client, "Center: ", center);
+	}
+	
+	NAU_SendBox(navAreaSE, navAreaNW, laserModelIndex, { 255, 0, 0, 255 }, 5.0);
+}
+
+
+public void NAU_DebugNavAreaNeighbours(int client, CNavArea navArea, int laserModelIndex)
+{
+	if(navArea.IsNavLadder())
+	{
+		for (int i = 0; i < view_as<int>(NAVLADDER_MAX); i++)
+		{
+			CNavLadder ladder = view_as<CNavLadder>(navArea);
+			CNavArea destination = ladder.GetDestinationNavArea(view_as<NavLadderDestination>(i));
+			NAU_DebugNavArea(client, destination, laserModelIndex);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < view_as<int>(NAVDIR_MAX); i++)
+		{
+			int neighbourCount = navArea.GetNeighbourCount(view_as<NavDirType>(i));
+			for (int j = 0; j < neighbourCount; j++)
+			{
+				CNavArea neighbour = navArea.GetNeighbour(view_as<NavDirType>(i), j);
+				NAU_DebugNavArea(client, neighbour, laserModelIndex);
+			}
+		}
+	}
+}
+
 /**
  * Get the address of the clients last known nav area (Private hidden variable: offset 0x8D8 as of 7/31/2018)
  * @param client index
  * @return address 		address of the last known nav area (Address_Null if player has no last known nav area)
  */
-public Address NAU_GetClientLastKnownNavArea(int client)
+public CNavArea NAU_GetClientLastKnownNavArea(int client)
 {
 	// Make shit break less
-	return view_as<Address>(GetEntData(client, FindSendPropInfo("CBaseCombatCharacter", "m_nRelativeDirectionOfLastInjury") + 0x8));
+	return view_as<CNavArea>(GetEntData(client, FindSendPropInfo("CBaseCombatCharacter", "m_nRelativeDirectionOfLastInjury") + 0x8));
 }
 
 public void NAU_Initialize(Address& navCount, Address& navAreas)
@@ -521,57 +599,6 @@ public void NAU_SendBeam(const float vMins[3], const float vMaxs[3], int modelIn
 	TE_SendToAll();
 }
 
-public void NAU_DebugNavArea(int client, Address navAreaAddress, int laserModelIndex)
-{
-	float navAreaNW[3], navAreaSE[3], center[3];
-	
-	if(!NAU_IsNavLadder(navAreaAddress))
-	{
-		NAU_GetNavAreaNorthWestCorner(navAreaAddress, navAreaNW);
-		NAU_GetNavAreaSouthEastCorner(navAreaAddress, navAreaSE);
-		NAU_GetNavAreaCenter(navAreaAddress, center);
-	}
-	else
-	{
-		NAU_GetNavLadderTop(navAreaAddress, navAreaNW);
-		NAU_GetNavLadderBottom(navAreaAddress, navAreaSE);
-		NAU_GetNavLadderCenter(navAreaAddress, center);
-	}
-
-	if(client > 0 && client <= MaxClients && IsClientInGame(client))
-	{
-		NAU_PrintVector(client, "North West: ", navAreaNW);
-		NAU_PrintVector(client, "South East: ", navAreaSE);
-		NAU_PrintVector(client, "Center: ", center);
-	}
-	
-	NAU_SendBox(navAreaSE, navAreaNW, laserModelIndex, { 255, 0, 0, 255 }, 5.0);
-}
-
-
-public void NAU_DebugNavAreaNeighbours(int client, Address navAreaAddress, int laserModelIndex)
-{
-	if(NAU_IsNavLadder(navAreaAddress))
-	{
-		for (int i = 0; i < view_as<int>(NAVLADDER_MAX); i++)
-		{
-			Address destination = NAU_GetDestinationNavAreaFromLadder(navAreaAddress, view_as<NavLadderDestination>(i));
-			NAU_DebugNavArea(client, destination, laserModelIndex);
-		}
-	}
-	else
-	{
-		for (int i = 0; i < view_as<int>(NAVDIR_MAX); i++)
-		{
-			int neighbourCount = NAU_GetNeighbourNavAreaCount(navAreaAddress, view_as<NavDirType>(i));
-			for (int j = 0; j < neighbourCount; j++)
-			{
-				Address neighbour = NAU_GetNeighbourNavArea(navAreaAddress, view_as<NavDirType>(i), j);
-				NAU_DebugNavArea(client, neighbour, laserModelIndex);
-			}
-		}
-	}
-}
 
 public SharedPlugin __pl_navareautilities  =
 {
