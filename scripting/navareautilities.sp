@@ -1,6 +1,6 @@
 #pragma semicolon 1
 
-#define DEBUG
+//#define DEBUG
 
 #define PLUGIN_AUTHOR "Rachnus, pelipoika"
 #define PLUGIN_VERSION "1.0"
