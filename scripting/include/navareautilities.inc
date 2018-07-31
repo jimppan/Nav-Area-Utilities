@@ -51,7 +51,7 @@ native int NAU_GetNavAreaCount();
  * Returns an address of a navareaindex
  * @return address 		address of nav area
  */
-native Address NAU_GetNavAreaAddressByIndex(int navAreaIndex);
+native CNavArea NAU_GetNavAreaAddressByIndex(int navAreaIndex);
 
 /**
  * Called when nav areas are loaded by plugin (OnMapStart)
