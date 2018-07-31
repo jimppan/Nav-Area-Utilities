@@ -1,7 +1,7 @@
-#if defined _navareasapi_included
+#if defined _navareautilities_included
  #endinput
 #endif
-#define _navareasapi_included
+#define _navareautilities_included
 
 #define NAU_PREFIX " \x09[\x04Nav UTIL\x09]"
 
