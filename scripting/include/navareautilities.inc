@@ -7,7 +7,9 @@
 
 #define NAU_GAMEDATA "navareautilities.gamedata"
 
-#define NAU_VERSION "1.01"
+#define NAU_VERSION "1.02"
+
+#define NAU_NAVAREA_PARENT 0x7C
 
 #define NAU_NAVAREA_SOUTH_NAV_CONNECT_VECTOR 0x5C
 
@@ -64,7 +66,6 @@ methodmap CNavArea
 {
 	/**
 	 * Returns the north west corner of the nav area
-	 * @param address of the nav area
 	 * @param buffer to store the position
 	 * @return void
 	 */
@@ -77,7 +78,6 @@ methodmap CNavArea
 	
 	/**
 	 * Returns the south east corner of the nav area
-	 * @param address of the nav area
 	 * @param buffer to store the position
 	 * @return void
 	 */
@@ -89,8 +89,17 @@ methodmap CNavArea
 	}
 	
 	/**
+	 * Get the parent nav area
+	 * @return address		address of the parent nav area
+	 */
+	public CNavArea GetParent()
+	{
+		Address navParent =	view_as<Address>(LoadFromAddress(view_as<Address>(this) + view_as<Address>(NAU_NAVAREA_PARENT), NumberType_Int32));
+		return view_as<CNavArea>(LoadFromAddress(navParent, NumberType_Int32));
+	}
+	
+	/**
 	 * Get the amount of nav areas in direction
-	 * @param address of the nav area
 	 * @param direction
 	 * @return int		Amount of neighbours in direction
 	 */
@@ -102,7 +111,6 @@ methodmap CNavArea
 	
 	/**
 	 * Get address of a neighbour nav area
-	 * @param address of the nav area
 	 * @param direction
 	 * @param neighbour index
 	 * @return address 		address of the neighbour nav area
@@ -115,7 +123,6 @@ methodmap CNavArea
 	
 	/**
 	 * Hacky way to find out if the nav area a CNavLadder or CNavArea
-	 * @param address of the nav area to check
 	 * @return bool 	if ladder area or not
 	 */
 	public bool IsNavLadder()
@@ -131,7 +138,6 @@ methodmap CNavArea
 	
 	/**
 	 * Returns the center position of the nav area
-	 * @param address of the nav area
 	 * @param buffer to store the position
 	 * @return void
 	 */
@@ -146,7 +152,6 @@ methodmap CNavArea
 	
 	/**
 	 * Returns wether or not the entity has larger X/Y values than the nav area
-	 * @param address of the nav area
 	 * @param entity index
 	 * @return bool		can entity fit in nav area
 	 */
@@ -183,7 +188,6 @@ methodmap CNavArea
 	
 	/**
 	 * Returns wether or not the entity has larger X/Y values than the nav area
-	 * @param address of the nav area
 	 * @param Mins of box
 	 * @param Maxs of box
 	 * @return bool		can entity fit in nav area
@@ -215,7 +219,6 @@ methodmap CNavArea
 	
 	/**
 	 * Get a random position within a nav area, returns false if the mins/maxs are bigger than the area
-	 * @param address of the nav area
 	 * @param Mins of entity you want to fit in the area
 	 * @param Maxs of entity you want to fit in the area
 	 * @param buffer to store the position
@@ -263,7 +266,6 @@ methodmap CNavArea
 
 	/**
 	 * Get the difference in Z positions of the nav area (Used to check if its a slope or not, returns 0 if plane surface)
-	 * @param address of the nav area
 	 * @return float		Z position difference
 	 */
 	public float GetZDifference()
@@ -280,7 +282,6 @@ methodmap CNavLadder < CNavArea
 {
 	/**
 	 * Get the top left position of the nav ladder area
-	 * @param address of the ladder nav area
 	 * @param buffer to store the position
 	 * @return void
 	 */
@@ -293,7 +294,6 @@ methodmap CNavLadder < CNavArea
 	
 	/**
 	 * Get the bottom right position of the nav ladder area
-	 * @param address of the nav area to check
 	 * @param buffer to store the position
 	 * @return void
 	 */
@@ -306,7 +306,6 @@ methodmap CNavLadder < CNavArea
 	
 	/**
 	 * Get the height of the ladder
-	 * @param address of the nav ladder to check
 	 * @return float	height of ladder
 	 */
 	public float GetHeight()
@@ -316,7 +315,6 @@ methodmap CNavLadder < CNavArea
 	
 	/**
 	 * Get the width of the ladder
-	 * @param address of the nav ladder to check
 	 * @return float	width of ladder
 	 */
 	public float GetWidth()
@@ -326,7 +324,6 @@ methodmap CNavLadder < CNavArea
 	
 	/**
 	 * Get address of a destination nav area from a ladder (check NavLadderDestination)
-	 * @param address of the nav ladder
 	 * @param ladder destination
 	 * @return address 		address of the destination nav area (Address_Null if invalid navarea)
 	 */
@@ -337,7 +334,6 @@ methodmap CNavLadder < CNavArea
 	
 	/**
 	 * Get the center position of the nav ladder area
-	 * @param address of the nav area to check
 	 * @param buffer to store the position
 	 * @return void
 	 */
@@ -530,14 +526,12 @@ public void NAU_GetMiddleOfABox(const float vec1[3], const float vec2[3], float 
 public bool NAU_IsPositionBlocked(float pos[3], float vMins[3], float vMaxs[3])
 {
 	Handle ray = TR_TraceHullFilterEx(pos, pos, vMins, vMaxs, MASK_PLAYERSOLID, NAU_TraceFilterNothing);
-	if(TR_DidHit(ray))
-		return false;
-	return true;
+	return TR_DidHit(ray);
 }
 
 public bool NAU_TraceFilterNothing(int entityhit, int mask, any entity)
 {
-	if(entityhit > -1)
+	if(entityhit == 0)
 		return true;
 	
 	return false;
@@ -546,9 +540,7 @@ public bool NAU_TraceFilterNothing(int entityhit, int mask, any entity)
 public bool NAU_IsPositionBlockedIgnoreSelf(float pos[3], float vMins[3], float vMaxs[3], int entity)
 {
 	Handle ray = TR_TraceHullFilterEx(pos, pos, vMins, vMaxs, MASK_PLAYERSOLID, NAU_TraceFilterIgnoreSelf, entity);
-	if(TR_DidHit(ray))
-		return false;
-	return true;
+	return TR_DidHit(ray);
 }
 
 public bool NAU_TraceFilterIgnoreSelf(int entityhit, int mask, any entity)
