@@ -14,7 +14,7 @@
 				"linux"
 				{
 					"signature" "nav_update_lighting" 
-					"read" "18"
+					"read" "113"
 				}
 			}
 		}
@@ -23,7 +23,7 @@
 			"nav_update_lighting"	//nav_update_lighting(CCommand const&) | STR "Computed lighting for %d/%d areas\n"
 			{
 				"windows"	"\x55\x8B\xEC\x8B\x45\x08\x57\x33\xFF"
-				"linux"		"\x55\x89\xE5\x56\x53\x83\xEC\x10\x8B\x45\x08\x83\x38\x02"
+				"linux"		"\x55\x89\xE5\x56\x8B\x45\x08\x53\x83\x38\x02"
 			}
 		}
 	}
